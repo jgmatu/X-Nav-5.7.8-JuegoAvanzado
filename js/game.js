@@ -45,6 +45,7 @@ var Game = {
 	princess : null,
 	stones   : null,
 	trolls   : null,
+	saved    : false,
 };
 
 // Images background, heroe, princess.
@@ -63,7 +64,6 @@ Game.trolls.speed = 64;
 
 Game.trolls = setInitialRandom(Game, Game.trolls);
 Game.stones = setInitialRandom(Game, Game.stones);
-
 
 function putCenter(object) {
 	object.x = HALFW;
@@ -187,7 +187,9 @@ function setScore (ctx , princess) {
 	ctx.font = "24px Helvetica";
 	ctx.textAlign = "left";
 	ctx.textBaseline = "top";
-	ctx.fillText("Princesses caught: " + princess.caught, 32, 32);
+	var text = "Princesses caught: " + princess.caught;
+	text += "\t" + "Level : " + Math.floor(princess.caught / 10);
+	ctx.fillText(text , 32, 32);
 }
 
 function setImage(ctx, img, x , y) {
@@ -211,10 +213,11 @@ function putImages(game, object) {
 	return object;
 }
 
-function isTouching (objectSrc, objectDst) {
-	return objectSrc.x <= (objectDst.x + 16) && objectDst.x <= (objectSrc.x + 16) &&
-			objectSrc.y <= (objectDst.y + 16) && objectDst.y <= (objectSrc.y + 16);
+function isTouching (src, dst) {
+	return src.x <= (dst.x + 16) && dst.x <= (src.x + 16) &&
+			src.y <= (dst.y + 16) && dst.y <= (src.y + 32);
 }
+
 
 function isLimit(x , y) {
 	return x < OFFSETFOREST || x > canvas.width - OFFSETFOREST - 32 ||
@@ -279,7 +282,7 @@ function moveConstant(item, nframes) {
 	return item;
 }
 
-function moveRandom(modifier, game, object, nframes) {
+function moveRandom(game, object, nframes) {
 	for (var i = 0 ; i < object.num ; i++) {
 		if (isMoveItem(game, object[i])) {
 			object[i] = moveConstant(object[i] , nframes);
@@ -296,22 +299,55 @@ function newItems(game, items, max) {
 	if (items.num > max) {
 		items.num = max;
 	}
-
 	items = setInitialRandom(game, items);
  	items = putItems(game, items);
-
 	return items;
+}
+
+function savePrincess(princess) {
+	localStorage.setItem('princess_caugth', princess.caught);
+	localStorage.setItem('princess_x', princess.x);
+	localStorage.setItem('princess_y', princess.y);
+}
+
+function savedHero(hero) {
+	localStorage.setItem('hero_x', Math.floor(hero.x));
+	localStorage.setItem('hero_y', Math.floor(hero.y));
+}
+
+function loadPrincess(princess) {
+	princess.caught = localStorage.getItem('princess_caugth');
+
+	princess.x = localStorage.getItem('princess_x');
+	princess.y = localStorage.getItem('princess_y');
+
+	return princess
+}
+
+function loadHero(hero) {
+	hero.x = localStorage.getItem('hero_x');
+	hero.y = localStorage.getItem('hero_y');
+
+	return hero;
+}
+
+function saveGame() {
+	localStorage.setItem('game_saved', true);
+}
+
+function loadGame() {
+	return localStorage.getItem('game_saved');
 }
 
 var nframes = 0;
 // Reset the game when the player catches a princess.
 var reset = function (game) {
 
+	game.princess = putRandom(game, game.princess);
+	game.hero = putCenter(game.hero);
+
 	game.trolls = newItems(game, game.trolls, MAXTROLS);
 	game.stones = newItems(game, game.stones, MAXSTONES);
-
-	game.hero = putCenter(game.hero);
-	game.princess = putRandom(game, game.princess);
 
 	nframes = -1;
 	return game;
@@ -322,18 +358,18 @@ var update = function (game, modifier) {
 	// Fighting for the princess!!
 	if (isMove(game, game.hero)) {
 		game.hero = saveMove(game.hero);
-		move(game.hero , modifier);
+		move(game.hero, modifier);
 	} else {
 		game.hero = setLastMove(game.hero);
 	}
-
-	moveRandom(modifier, game, game.trolls, nframes);
+	savedHero(game.hero);
+	moveRandom(game, game.trolls, nframes);
 
 	// Warrior Winner!!
 	if (isWinner(game.princess, game.hero)) {
-		game.trolls.num++;
-		game.stones.num++;
 		game.princess.caught++;
+		game.trolls.num = Math.floor(game.princess.caught / 10);
+		game.stones.num = Math.floor(game.princess.caught / 10);
 		game = reset(game);
 	}
 	// Warrior Lost!! The trolls gone with his live.
@@ -369,6 +405,7 @@ var render = function (game) {
 
 	return game;
 };
+
 // The main game loop
 var main = function () {
 	var now = Date.now();
@@ -381,7 +418,11 @@ var main = function () {
 	then = now;
 };
 
+Game.saved = loadGame();
+
 Game = reset(Game);
+saveGame(Game);
+
 var then = Date.now();
 // The setInterval() method will wait a specified number of milliseconds, and then execute a specified function,
 // and it will continue to execute the function, once at every given time-interval.
