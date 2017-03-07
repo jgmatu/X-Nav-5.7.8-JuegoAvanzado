@@ -1,9 +1,9 @@
-// Original game from:
+// Original game from :
 // http://www.lostdecadegames.com/how-to-make-a-simple-html5-canvas-game/
 // Slight modifications by Gregorio Robles <grex@gsyc.urjc.es>
-// to meet the criteria of a canvas class for DAT @ Univ. Rey Juan Carlos
+// to meet the criteria of a canvas class for DAT @ Univ. Rey Juan Carlos.
 
-// Consts Game.
+// Consts Game...
 const WIDTH = 512;
 const HEIGHT = 480;
 const HALFW = WIDTH / 2;
@@ -15,7 +15,7 @@ const OFFSETCENTER = 128;
 const CENTERMINY = HALFH - OFFSETCENTER, CENTERMAXY = HALFH + OFFSETCENTER;
 const CENTERMINX = HALFW - OFFSETCENTER, CENTERMAXX = HALFW + OFFSETCENTER;
 
-const NUMSTONES = 0, NUMTROLS = 0, MAXSTONES = 12, MAXTROLS = 12;
+const NUMSTONES = 0, NUMTROLS = 0, MAXSTONES = 12, MAXTROLS = 12, NEXTLEVEL = 10;
 const X = 0, Y = 1;
 
 // Create the canvas
@@ -45,7 +45,7 @@ var Game = {
 	princess : null,
 	stones   : null,
 	trolls   : null,
-	saved    : false,
+	saved    : null,
 };
 
 // Images background, heroe, princess.
@@ -66,8 +66,8 @@ Game.trolls = setInitialRandom(Game, Game.trolls);
 Game.stones = setInitialRandom(Game, Game.stones);
 
 function putCenter(object) {
-	object.x = HALFW;
-	object.y = HALFH;
+	object.x = Math.floor(HALFW);
+	object.y = Math.floor(HALFH);
 
 	return object;
 }
@@ -77,7 +77,8 @@ function getRandomInt(min , max) {
 }
 
 function isCenter(object) {
-	return object.x > CENTERMINX && object.x < CENTERMAXX && object.y > CENTERMINY && object.y < CENTERMAXY;
+	return object.x > CENTERMINX && object.x < CENTERMAXX &&
+			object.y > CENTERMINY && object.y < CENTERMAXY;
 }
 
 function setRandom(object) {
@@ -121,9 +122,11 @@ function isOnObject(game, object) {
 
 function putRandom(game, object) {
 	object.x = 0, object.y = 0;
+
 	do {
 		object = setRandom(object);
 	} while (isCenter(object) || isOnObject(game, object));
+
 	return object;
 }
 
@@ -173,9 +176,9 @@ function saveMove(object) {
 }
 
 function setLastMove(object) {
-	if (object.lastMove.x == undefined || object.lastMove.y == undefined) {
-		return object;
-	}
+	//if (object.lastMove.x == undefined || object.lastMove.y == undefined) {
+	//	return object;
+	//}
 	object.x = object.lastMove.x;
 	object.y = object.lastMove.y;
 
@@ -188,7 +191,7 @@ function setScore (ctx , princess) {
 	ctx.textAlign = "left";
 	ctx.textBaseline = "top";
 	var text = "Princesses caught: " + princess.caught;
-	text += "\t" + "Level : " + Math.floor(princess.caught / 10);
+	text += "\t" + "Level : " + Math.floor(princess.caught / NEXTLEVEL);
 	ctx.fillText(text , 32, 32);
 }
 
@@ -282,14 +285,19 @@ function moveConstant(item, nframes) {
 	return item;
 }
 
+function newMove(object) {
+	object = setLastMove(object);
+	object = setNewConst(object);
+
+	return object;
+}
+
 function moveRandom(game, object, nframes) {
 	for (var i = 0 ; i < object.num ; i++) {
 		if (isMoveItem(game, object[i])) {
 			object[i] = moveConstant(object[i] , nframes);
 		} else {
-			// hit with and object or limits new move patron....
-			object[i] = setLastMove(object[i]);
-			object[i] = setNewConst(object[i]);
+			object[i] = newMove(object[i]);
 		}
 	}
 	return object;
@@ -304,40 +312,79 @@ function newItems(game, items, max) {
 	return items;
 }
 
+function saveTrolls(trolls) {
+	localStorage.setItem('num_trolls', trolls.num);
+}
+
+function saveStones(stones) {
+	localStorage.setItem('num_stones', stones.num);
+}
+
 function savePrincess(princess) {
 	localStorage.setItem('princess_caugth', princess.caught);
+
 	localStorage.setItem('princess_x', princess.x);
 	localStorage.setItem('princess_y', princess.y);
 }
 
-function savedHero(hero) {
+function saveHero(hero) {
 	localStorage.setItem('hero_x', Math.floor(hero.x));
 	localStorage.setItem('hero_y', Math.floor(hero.y));
 }
 
-function loadPrincess(princess) {
-	princess.caught = localStorage.getItem('princess_caugth');
+function saveGame(game) {
+	game.saved = true;
+	localStorage.setItem('game_saved', game.saved);
 
-	princess.x = localStorage.getItem('princess_x');
-	princess.y = localStorage.getItem('princess_y');
+	saveTrolls(game.trolls);
+	saveStones(game.stones);
+	saveHero(game.hero);
+	savePrincess(game.princess);
+	saveTrolls(game.trolls);
+}
+
+function loadPrincess(princess) {
+	princess.caught = parseInt(localStorage.getItem('princess_caugth'));
+
+	princess.x = parseFloat(localStorage.getItem('princess_x'));
+	princess.y = parseFloat(localStorage.getItem('princess_y'));
 
 	return princess
 }
 
 function loadHero(hero) {
-	hero.x = localStorage.getItem('hero_x');
-	hero.y = localStorage.getItem('hero_y');
+	hero.x = parseFloat(localStorage.getItem('hero_x'));
+	hero.y = parseFloat(localStorage.getItem('hero_y'));
 
 	return hero;
 }
 
-function saveGame() {
-	localStorage.setItem('game_saved', true);
+function loadTrolls(game, trolls) {
+	game.trolls.num = localStorage.getItem('num_trolls');
+	game.trolls = newItems(game, game.trolls, MAXTROLS);
+
+	return trolls;
 }
 
-function loadGame() {
-	return localStorage.getItem('game_saved');
+function loadStones(game, stones) {
+	game.stones.num = localStorage.getItem('num_stones');
+	game.stones = newItems(game, game.stones, MAXSTONES);
+
+	return stones;
 }
+
+function loadGame(game) {
+	game.saved = localStorage.getItem('game_saved');
+
+	game.hero = loadHero(game.hero);
+	game.princess = loadPrincess(game.princess);
+
+	game.trolls = loadTrolls(game, game.trolls);
+	game.stones = loadStones(game, game.stones);
+
+	return game;
+}
+
 
 var nframes = 0;
 // Reset the game when the player catches a princess.
@@ -362,14 +409,13 @@ var update = function (game, modifier) {
 	} else {
 		game.hero = setLastMove(game.hero);
 	}
-	savedHero(game.hero);
 	moveRandom(game, game.trolls, nframes);
 
 	// Warrior Winner!!
 	if (isWinner(game.princess, game.hero)) {
 		game.princess.caught++;
-		game.trolls.num = Math.floor(game.princess.caught / 10);
-		game.stones.num = Math.floor(game.princess.caught / 10);
+		game.trolls.num = Math.floor(game.princess.caught / NEXTLEVEL);
+		game.stones.num = Math.floor(game.princess.caught / NEXTLEVEL);
 		game = reset(game);
 	}
 	// Warrior Lost!! The trolls gone with his live.
@@ -411,17 +457,23 @@ var main = function () {
 	var now = Date.now();
 	var delta = now - then;
 
-	Game = update(Game, delta / 1000 , nframes);
-	Game = render(Game, delta);
+	Game = update(Game, delta / 1000);
+	Game = render(Game);
 
+	if (nframes % 100 == 0) {
+		saveGame(Game);
+	}
 	nframes++;
 	then = now;
 };
 
-Game.saved = loadGame();
+Game.saved = localStorage.getItem('game_saved');
+if (Game.saved == null) {
+	Game = reset(Game);
+} else {
+	Game = loadGame(Game);
+}
 
-Game = reset(Game);
-saveGame(Game);
 
 var then = Date.now();
 // The setInterval() method will wait a specified number of milliseconds, and then execute a specified function,
